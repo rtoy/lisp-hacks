@@ -162,15 +162,24 @@ int kernel_rem_pio2(double *x, double *y, int e0, int nx, int prec, const int *i
 	jv = (e0-3)/24; if(jv<0) jv=0;
 	q0 =  e0-24*(jv+1);
 
+	printf("q0 = %d\n", q0);
+	
     /* set up f[0] to f[jx+jk] where f[jx+jk] = ipio2[jv+jk] */
 	j = jv-jx; m = jx+jk;
+	printf("j, m = %d %d\n", j, m);
 	for(i=0;i<=m;i++,j++) f[i] = (j<0)? zero : (double) ipio2[j];
 
+	for (i = 0; i <= m; ++i) {
+	    printf("f[%2d] = %.15g\n", i, f[i]);
+	}
     /* compute q[0],q[1],...q[jk] */
 	for (i=0;i<=jk;i++) {
 	    for(j=0,fw=0.0;j<=jx;j++) fw += x[j]*f[jx+i-j]; q[i] = fw;
 	}
 
+	for (i = 0; i <= jk; ++i) {
+	    printf("q[%d] = %.15g\n", i, q[i]);
+	}
 	jz = jk;
 recompute:
     /* distill q[] into iq[] reversingly */
@@ -180,12 +189,16 @@ recompute:
 	    z     =  q[j-1]+fw;
 	}
 
+	for (i = 0; i < 20; ++i) {
+	    printf("iq[%2d] = %d\n", i, iq[i]);
+	}
     /* compute n */
 	z  = scalbn(z,q0);		/* actual value of z */
 	z -= 8.0*floor(z*0.125);		/* trim off integer >= 8 */
 	n  = (int) z;
 	z -= (double)n;
 	ih = 0;
+	printf("q0 = %d, z = %.15g\n", q0, z);
 	if(q0>0) {	/* need iq[jz-1] to determine n */
 	    i  = (iq[jz-1]>>(24-q0)); n += i;
 	    iq[jz-1] -= i<<(24-q0);
@@ -194,6 +207,9 @@ recompute:
 	else if(q0==0) ih = iq[jz-1]>>23;
 	else if(z>=0.5) ih=2;
 
+	for (i = 0; i < 20; ++i) {
+	    printf("iq[%2d] = %d\n", i, iq[i]);
+	}
 	if(ih>0) {	/* q > 0.5 */
 	    n += 1; carry = 0;
 	    for(i=0;i<jz ;i++) {	/* compute 1-q */
@@ -204,6 +220,11 @@ recompute:
 		    }
 		} else  iq[i] = 0xffffff - j;
 	    }
+	    printf("q > 0.5\n");
+	    for (i = 0; i < 20; ++i) {
+		printf("iq[%2d] = %d\n", i, iq[i]);
+	    }
+	    printf("q0 = %d\n", q0);
 	    if(q0>0) {		/* rare case: chance is 1 in 12 */
 	        switch(q0) {
 	        case 1:
@@ -218,6 +239,8 @@ recompute:
 	    }
 	}
 
+	printf("checking recomp: z = %.15g\n", z);
+
     /* check if recomputation is needed */
 	if(z==zero) {
 	    j = 0;
@@ -225,12 +248,14 @@ recompute:
 	    if(j==0) { /* need recomputation */
 		for(k=1;iq[jk-k]==0;k++);   /* k = no. of terms needed */
 
+		printf("k = %d\n", k);
 		for(i=jz+1;i<=jz+k;i++) {   /* add q[jz+1] to q[jz+k] */
 		    f[jx+i] = (double) ipio2[jv+i];
 		    for(j=0,fw=0.0;j<=jx;j++) fw += x[j]*f[jx+i-j];
 		    q[i] = fw;
 		}
 		jz += k;
+		printf("recompute needed! jz = %d\n", jz);
 		goto recompute;
 	    }
 	}

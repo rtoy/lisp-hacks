@@ -151,6 +151,7 @@ int ieee754_rem_pio2(double x, double *y)
 	e0 	= (ix>>20)-1046;	/* e0 = ilogb(z)-23; */
 	uz.i[HIWORD] = ix - (e0<<20);
 	z = uz.d;
+	printf("z = %.15g\n", z);
 	for(i=0;i<2;i++) {
 		tx[i] = (double)((int)(z));
 		z     = (z-tx[i])*two24;
@@ -158,6 +159,14 @@ int ieee754_rem_pio2(double x, double *y)
 	tx[2] = z;
 	nx = 3;
 	while(tx[nx-1]==zero) nx--;	/* skip zero term */
+
+	printf("nx, e0 = %d %d\n", nx, e0);
+	printf("y[0]  = %15g\n", y[0]);
+	printf("y[1]  = %15g\n", y[1]);
+	printf("tx[0] = %15g\n", tx[0]);
+	printf("tx[1] = %15g\n", tx[1]);
+	printf("tx[2] = %15g\n", tx[2]);
+
 	n  =  kernel_rem_pio2(tx,y,e0,nx,2,two_over_pi);
 	if(hx<0) {y[0] = -y[0]; y[1] = -y[1]; return -n;}
 	return n;
