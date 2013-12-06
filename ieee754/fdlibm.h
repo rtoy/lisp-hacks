@@ -32,7 +32,7 @@ extern double fabs(double);
 extern double floor(double);
 
 /* ieee style elementary functions */
-extern int    __ieee754_rem_pio2(double,double*);
+extern int    ieee754_rem_pio2(double,double*);
 
 /*
  * Functions callable from C, intended to support IEEE arithmetic.
@@ -40,4 +40,4 @@ extern int    __ieee754_rem_pio2(double,double*);
 extern double scalbn(double, int);
 
 /* fdlibm kernel function */
-extern int    __kernel_rem_pio2(double*,double*,int,int,int,const int*);
+extern int    kernel_rem_pio2(double*,double*,int,int,int,const int*);
