@@ -127,11 +127,12 @@
 	  (t
 	   ;; All other large values
 	   (format t "Big value ~S~%" x)
-	   (let* ((z (scale-float (abs x) (- (kernel::logb (abs x)) 23)))
-		  (e0 (- (kernel::logb z) 23))
+	   (let* ((z (scale-float (abs x) (- 23 (kernel::logb (abs x)))))
+		  (e0 (- (kernel::logb (abs x)) 23))
 		  (y (make-array 2 :element-type 'double-float))
 		  (tx (make-array 3 :element-type 'double-float))
 		  (nx 3))
+	     (format t "z = ~S~%" z)
 	     (dotimes (i 2)
 	       (setf (aref tx i) (ftruncate z))
 	       (setf z (* (- z (aref tx i)) (scale-float 1d0 24))))
@@ -140,6 +141,7 @@
 	     (loop while (zerop (aref tx (- nx 1)))
 		   do (decf nx))
 	     (format t "nx = ~S~%" nx)
+	     (format t "e0 = ~S~%" e0)
 	     (let ((n (kernel-rem-pi/2 tx y e0 nx 2 2/pi-bits)))
 	       (cond ((minusp hx)
 		      (values (- n) (- (aref y 0)) (- (aref y 1))))
