@@ -18,8 +18,10 @@
 
 (defun kernel-rem-pi/2 (x y e0 nx prec ipio2)
   (declare (type (simple-array double-float (*)) x y)
-	   (type (integer 0 3) prec)
-	   (type (simple-array (unsigned-byte 32) (*)) ipio2))
+	   (type (integer 0 3) prec nx)
+	   (type (integer -23 1023) e0)
+	   (type (simple-array (unsigned-byte 24) (*)) ipio2)
+	   (optimize (speed 3)))
   (let* ((jk (aref init-jk prec))
 	 (jp jk)
 	 (jx (- nx 1))
@@ -29,6 +31,7 @@
 	 (f (make-array 20 :element-type 'double-float))
 	 (fq (make-array 20 :element-type 'double-float))
 	 (q (make-array 20 :element-type 'double-float)))
+    (declare (fixnum jv q0))
     (when (minusp jv)
       (setf jv 0))
     (setf q0 (- e0 (* 24 (+ jv 1))))
@@ -37,19 +40,24 @@
     ;; set up f[0] to f[jx+jk] where f[jx+jk] = ipio2[jv+jk]
     (let ((j (- jv jx))
 	  (m (+ jx jk)))
+      (declare (fixnum j))
       #+nil
       (format t "j = ~S, m = ~S~%" j m)
       (loop for i from 0 upto m
 	    do
 	       (progn
-		 (setf (aref f i) (if (minusp j) 0d0 (float (aref ipio2 j) 1d0)))
+		 (setf (aref f i) (if (minusp j)
+				      0d0
+				      (float (the (unsigned-byte 24) (aref ipio2 j))
+					     1d0)))
 		 (incf j))))
     #+nil
     (format t "f = ~S~%" f)
     ;; Compute q[0],...,q[jk]
-    (loop for i from 0 upto jk do
+    (loop for i of-type fixnum from 0 upto jk do
       (let ((fw 0d0))
-	(loop for j from 0 upto jx do
+	(declare (double-float fw))
+	(loop for j of-type fixnum from 0 upto jx do
 	  (progn
 	    (incf fw (* (aref x j) (aref f (- (+ jx i) j))))
 	    (setf (aref q i) fw)))))
@@ -58,13 +66,16 @@
     (let ((jz jk)
 	  (n 0)
 	  (ih 0))
+      (declare (fixnum jz n ih))
       (tagbody
 	recompute
 	 ;; distill q[] into iq[] reversingly
 	 (let ((i 0)
 	       (z (aref q jz))
 	       (fw 0d0))
-	   (loop for j from jz above 0
+	   (declare (fixnum i)
+		    (double-float z fw))
+	   (loop for j of-type fixnum from jz above 0
 		 do
 		    (let ((fw (ftruncate (* z (scale-float 1d0 -24)))))
 		      (setf (aref iq i) (truncate (- z (* fw (scale-float 1d0 24)))))
@@ -146,16 +157,18 @@
 		 #+nil
 		 (format t "iq = ~S~%" iq)
 		 (let ((k
-			(loop for k from 1 while (zerop (aref iq (- jk k)))
+			(loop for k of-type fixnum from 1
+			      while (zerop (aref iq (- jk k)))
 			      finally (return k))))
 		   #+nil
 		   (format t "k = ~S~%" k)
-		   (loop for i from (+ jz 1) upto (+ jz k)
+		   (loop for i of-type fixnum from (+ jz 1) upto (+ jz k)
 			 do
 			    (progn
 			      ;; add q[jz + 1] to q[jz + k]
 			      (setf (aref f (+ jx i)) (float (aref ipio2 (+ jv i)) 1d0))
-			      (loop for j from 0 upto jx with fw = 0d0
+			      (loop for j of-type fixnum from 0 upto jx
+				    with fw of-type double-float = 0d0
 				    do
 				       (incf fw (* (aref x j) (aref f (- (+ jx i) j))))
 				    finally
@@ -196,10 +209,10 @@
 		      (setf (aref q i) (* fw (aref iq i)))
 		      (setf fw (* fw (scale-float 1d0 -24)))))
 	   ;; Compute PIo2[0,....,jp]*q[jz,...,0]
-	   (loop for i from jz downto 0
+	   (loop for i of-type fixnum from jz downto 0
 		 do
-		    (loop with fw = 0d0
-			  for k from 0
+		    (loop with fw of-type double-float = 0d0
+			  for k of-type fixnum from 0
 			  while (and (<= k jp) (<= k (- jz i)))
 			  do
 			     (incf fw (* (aref pio2 k) (aref q (+ i k))))
