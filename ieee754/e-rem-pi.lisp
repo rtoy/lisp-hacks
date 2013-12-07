@@ -42,6 +42,7 @@
 	 (hx (kernel:double-float-bits x))
 	 (ix (logand hx #x7fffffff)))
     (declare (double-float z))
+    #+nil
     (format t "ix = ~A~%" ix)
     (cond ((<= ix #x3fe921fb)
 	   ;; |x| <= pi/4, no need for reduction
@@ -80,10 +81,12 @@
 		  (w (* fn pi/2-1t))
 		  (y0 0d0)
 		  (y1 0d0))
-	     (Format t "n, fn = ~S ~S~%" n fn)
+	     #+nil
+	     (format t "n, fn = ~S ~S~%" n fn)
 	     ;; First round good to 85 bit
 	     (cond ((and (< fn 32)
 			 (/= ix (aref npio2-hw (- n 1))))
+		    #+nil
 		    (format t "first round ~%")
 		    (setf y0 (- r w)))
 		   (t
@@ -91,10 +94,12 @@
 		    (let* ((j (ash ix -20))
 			   (i (- j (logand (ash (kernel:double-float-bits y0) -20)
 					   #x7ff))))
+		      #+nil
 		      (format t "i = ~S~%" i)
 		      (when (> i 16)
 			;; 2nd iteration, good to 118
-			(Format t "second round~%")
+			#+nil
+			(format t "second round~%")
 			(setf tt r)
 			(setf w (* fn pi/2-2))
 			(setf r (- tt w))
@@ -104,9 +109,11 @@
 			(setf y0 (- r w))
 			(let ((i (- j (logand (ash (kernel:double-float-bits y0) -20)
 					      #x7ff))))
+			  #+nil
 			  (format t "i = ~S~%" i)
 			  (when (> i 49)
 			    ;; 3rd iteration needed. 151 bits
+			    #+nil
 			    (format t "third round~%") 
 			    (setf tt r)
 			    (setf w (* fn pi/2-3))
@@ -126,22 +133,27 @@
 	   (values 0 y y)))
 	  (t
 	   ;; All other large values
+	   #+nil
 	   (format t "Big value ~S~%" x)
 	   (let* ((z (scale-float (abs x) (- 23 (kernel::logb (abs x)))))
 		  (e0 (- (kernel::logb (abs x)) 23))
 		  (y (make-array 2 :element-type 'double-float))
 		  (tx (make-array 3 :element-type 'double-float))
 		  (nx 3))
+	     #+nil
 	     (format t "z = ~S~%" z)
 	     (dotimes (i 2)
 	       (setf (aref tx i) (ftruncate z))
 	       (setf z (* (- z (aref tx i)) (scale-float 1d0 24))))
 	     (setf (aref tx 2) z)
+	     #+nil
 	     (format t "tx = ~S~%" tx)
 	     (loop while (zerop (aref tx (- nx 1)))
 		   do (decf nx))
-	     (format t "nx = ~S~%" nx)
-	     (format t "e0 = ~S~%" e0)
+	     #+nil
+	     (progn
+	       (format t "nx = ~S~%" nx)
+	       (format t "e0 = ~S~%" e0))
 	     (let ((n (kernel-rem-pi/2 tx y e0 nx 2 2/pi-bits)))
 	       (cond ((minusp hx)
 		      (values (- n) (- (aref y 0)) (- (aref y 1))))

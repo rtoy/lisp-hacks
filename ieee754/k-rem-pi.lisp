@@ -32,16 +32,19 @@
     (when (minusp jv)
       (setf jv 0))
     (setf q0 (- e0 (* 24 (+ jv 1))))
-    (Format t "q0 = ~A~%" q0)
+    #+nil
+    (format t "q0 = ~A~%" q0)
     ;; set up f[0] to f[jx+jk] where f[jx+jk] = ipio2[jv+jk]
     (let ((j (- jv jx))
 	  (m (+ jx jk)))
+      #+nil
       (format t "j = ~S, m = ~S~%" j m)
       (loop for i from 0 upto m
 	    do
 	       (progn
 		 (setf (aref f i) (if (minusp j) 0d0 (float (aref ipio2 j) 1d0)))
 		 (incf j))))
+    #+nil
     (format t "f = ~S~%" f)
     ;; Compute q[0],...,q[jk]
     (loop for i from 0 upto jk do
@@ -50,6 +53,7 @@
 	  (progn
 	    (incf fw (* (aref x j) (aref f (- (+ jx i) j))))
 	    (setf (aref q i) fw)))))
+    #+nil
     (format t "q = ~S~%" q)
     (let ((jz jk)
 	  (n 0)
@@ -64,10 +68,12 @@
 		 do
 		    (let ((fw (ftruncate (* z (scale-float 1d0 -24)))))
 		      (setf (aref iq i) (truncate (- z (* fw (scale-float 1d0 24)))))
+		      #+nil
 		      (format t "i ~D: z = ~S fw = ~S iq = ~S~%"
 			      i z fw (aref iq i))
 		      (setf z (+ fw (aref q (- j 1))))
 		      (incf i)))
+	   #+nil
 	   (format t "init iq = ~S~%" iq)
 	   ;; compute n
 	   (setf z (scale-float z q0))
@@ -75,6 +81,7 @@
 	   (setf n (truncate z))
 	   (setf z (- z n))
 	   (setf ih 0)
+	   #+nil
 	   (format t "q0 = ~S, z = ~S~%" q0 z)
 	   (cond ((plusp q0)
 		  ;; need iq[jz-1] to determine n
@@ -86,9 +93,11 @@
 		  (setf ih (ash (aref iq (- jz 1)) -23)))
 		 ((>= z 0.5)
 		  (setf ih 2)))
+	   #+nil
 	   (format t "iq = ~S~%" iq)
 	   (when (plusp ih)
 	     ;; q > 0.5
+	     #+nil
 	     (format t "q > 0.5~%")
 	     (incf n 1)
 	     (let ((carry 0)
@@ -103,10 +112,13 @@
 				   (setf (aref iq i) (- #x1000000 j))))
 				(t
 				 (setf (aref iq i) (- #xffffff j))))))
-	       (format t "iq = ~S~%" iq)
-	       (format t "q = ~S~%" q)
+	       #+nil
+	       (progn
+		 (format t "iq = ~S~%" iq)
+		 (format t "q = ~S~%" q))
 	       (when (plusp q0)
 		 ;; rare case: chance is 1 in 12
+		 #+nil
 		 (format t "rare case of q0 > 0~%")
 		 (case q0
 		   (1
@@ -120,8 +132,10 @@
 		 (when (/= carry 0)
 		   (decf z (scale-float 1d0 q0))))))
 	   ;; Check if recomputation is needed
-	   (Format t "recomp? z = ~S~%" z)
+	   #+nil
+	   (format t "recomp? z = ~S~%" z)
 	   (when (zerop z)
+	     #+nil
 	     (format t "Checking if recomp needed~%")
 	     (let ((j 0))
 	       (loop for i from (- jz 1) downto jk
@@ -129,10 +143,12 @@
 	       (when (zerop j)
 		 ;; need recomputation
 		 ;; k = no of terms needed
+		 #+nil
 		 (format t "iq = ~S~%" iq)
 		 (let ((k
 			(loop for k from 1 while (zerop (aref iq (- jk k)))
 			      finally (return k))))
+		   #+nil
 		   (format t "k = ~S~%" k)
 		   (loop for i from (+ jz 1) upto (+ jz k)
 			 do
@@ -145,10 +161,12 @@
 				    finally
 				       (setf (aref q i) fw))))
 		   (incf jz k)
+		   #+nil
 		   (format t "recompute needed! jz = ~D~%" jz)
 		   (go recompute)))))
 
 	   ;; chop off zero terms
+	   #+nil
 	   (format t "chop off zero: z = ~S~%" z)
 	   (cond ((zerop z)
 		  (decf jz)
