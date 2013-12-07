@@ -37,16 +37,22 @@
 (defconstant pi/2-3t (kernel:make-double-float #x397B839A #x252049C1))
 
 (defun ieee754-rem-pi/2 (x)
-  (declare (double-float x))
-  (let* ((z 0d0)
-	 (hx (kernel:double-float-bits x))
+  (declare (double-float x)
+	   (optimize (speed 3)))
+  (let* ((result-n 0)
+	 (result-y0 0d0)
+	 (result-y1 0d0)
+	 (z 0d0)
+	 (hx (kernel:double-float-high-bits x))
 	 (ix (logand hx #x7fffffff)))
-    (declare (double-float z))
+    (declare (double-float z result-y0 result-y1))
     #+nil
     (format t "ix = ~A~%" ix)
     (cond ((<= ix #x3fe921fb)
 	   ;; |x| <= pi/4, no need for reduction
-	   (values 0 x 0d0))
+	   (setf result-n 0
+		 result-y0 x
+		 result-y1 0d0))
 	  ((< ix #x4002d97c)
 	   ;; |x| < 3pi/4. Special case with n = +/- 1
 	   (cond ((plusp hx)
@@ -54,24 +60,32 @@
 		  (cond ((/= ix #x3ff921fb)
 			 ;; 33 + 53 bits of pi is enough
 			 (let ((y0 (- z pi/2-1t)))
-			   (values 1 y0 (- (- z y0) pi/2-1t))))
+			   (setf result-n 1
+				 result-y0 y0
+				 result-y1 (- (- z y0) pi/2-1t))))
 			(t
 			 ;; near pi/2. Use 33+33+53 bits of pi
 			 (decf z pi/2-2)
 			 (let ((y0 (- z pi/2-2t)))
-			   (values 1 y0 (- (- z y0) pi/2-2t))))))
+			   (setf result-n 1
+				 result-y0 y0
+				 result-y1 (- (- z y0) pi/2-2t))))))
 		 (t
 		  ;; Negative x
 		  (setf z (+ x pi/2-1))
 		  (cond ((/= ix #x3ff921fb)
 			 ;; 33 + 53 bits of pi is enough
 			 (let ((y0 (+ z pi/2-1t)))
-			   (values -1 y0 (+ (- z y0) pi/2-1t))))
+			   (setf result-n -1
+				 result-y0 y0
+				 result-y1 (+ (- z y0) pi/2-1t))))
 			(t
 			 ;; near pi/2. Use 33+33+53 bits of pi
 			 (incf z pi/2-2)
 			 (let ((y0 (+ z pi/2-2t)))
-			   (values -1 y0 (+ (- z y0) pi/2-2t))))))))
+			   (setf result-n -1
+				 result-y0 y0
+				 result-y1 (+ (- z y0) pi/2-2t))))))))
 	  ((<= ix #x413921fb)
 	   ;; |x| <= 2^19*pi/2, medium size
 	   (let* ((tt (abs x))
@@ -81,6 +95,8 @@
 		  (w (* fn pi/2-1t))
 		  (y0 0d0)
 		  (y1 0d0))
+	     (declare (type (double-float 0d0 1048576d0) tt)
+		      (double-float r w y0 y1))
 	     #+nil
 	     (format t "n, fn = ~S ~S~%" n fn)
 	     ;; First round good to 85 bit
@@ -124,26 +140,34 @@
 			    (setf y0 (- r w))))))))
 	     (setf y1 (- (- r y0) w))
 	     (cond ((minusp hx)
-		    (values (- n) (- y0) (- y1)))
+		    (setf result-n (- n)
+			  result-y0 (- y0)
+			  result-y1 (- y1)))
 		   (t
-		    (values n y0 y1)))))
+		    (setf result-n n
+			  result-y0 y0
+			  result-y1 y1)))))
 	  ((>= ix #x7ff00000)
 	   ;; x is inf or NaN
 	   (let ((y (- x x)))
-	   (values 0 y y)))
+	   (setf result-n 0
+		 result-y0 y
+		 result-y1 y)))
 	  (t
 	   ;; All other large values
 	   #+nil
 	   (format t "Big value ~S~%" x)
-	   (let* ((z (scale-float (abs x) (- 23 (kernel::logb (abs x)))))
-		  (e0 (- (kernel::logb (abs x)) 23))
+	   (let* ((ilogx (truly-the (integer 0 1023) (kernel::logb (abs x))))
+		  (z (scale-float (abs x) (- 23 ilogx)))
+		  (e0 (- ilogx 23))
 		  (y (make-array 2 :element-type 'double-float))
 		  (tx (make-array 3 :element-type 'double-float))
 		  (nx 3))
+	     (declare (type (integer 0 3) nx))
 	     #+nil
 	     (format t "z = ~S~%" z)
 	     (dotimes (i 2)
-	       (setf (aref tx i) (ftruncate z))
+	       (setf (aref tx i) (ftruncate (the (double-float 0d0 1048576d0) z)))
 	       (setf z (* (- z (aref tx i)) (scale-float 1d0 24))))
 	     (setf (aref tx 2) z)
 	     #+nil
@@ -156,6 +180,11 @@
 	       (format t "e0 = ~S~%" e0))
 	     (let ((n (kernel-rem-pi/2 tx y e0 nx 2 2/pi-bits)))
 	       (cond ((minusp hx)
-		      (values (- n) (- (aref y 0)) (- (aref y 1))))
+		      (setf result-n (- n)
+			    result-y0 (- (aref y 0))
+			    result-y1 (- (aref y 1))))
 		     (t
-		      (values n  (aref y 0) (aref y 1))))))))))
+		      (setf result-n n
+			    result-y0 (aref y 0)
+			    result-y1 (aref y 1))))))))
+    (values result-n result-y0 result-y1)))
