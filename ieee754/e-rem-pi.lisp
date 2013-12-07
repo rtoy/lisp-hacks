@@ -36,8 +36,9 @@
 (defconstant pi/2-3  (kernel:make-double-float #x3BA3198A #x2E000000))
 (defconstant pi/2-3t (kernel:make-double-float #x397B839A #x252049C1))
 
-(defun ieee754-rem-pi/2 (x)
+(defun ieee754-rem-pi/2 (x yy)
   (declare (double-float x)
+	   (type (simple-array double-float (*)) yy)
 	   (optimize (speed 3)))
   (let* ((result-n 0)
 	 (result-y0 0d0)
@@ -107,8 +108,11 @@
 		    (setf y0 (- r w)))
 		   (t
 		    (setf y0 (- r w))
+		    ;; j is the IEEE exponent of x. The logand part is
+		    ;; the IEEE exponent of y0.  Can we do this
+		    ;; faster?
 		    (let* ((j (ash ix -20))
-			   (i (- j (logand (ash (kernel:double-float-bits y0) -20)
+			   (i (- j (logand (ash (kernel:double-float-high-bits y0) -20)
 					   #x7ff))))
 		      #+nil
 		      (format t "i = ~S~%" i)
@@ -123,7 +127,7 @@
 				   (- (- tt r)
 				      w)))
 			(setf y0 (- r w))
-			(let ((i (- j (logand (ash (kernel:double-float-bits y0) -20)
+			(let ((i (- j (logand (ash (kernel:double-float-high-bits y0) -20)
 					      #x7ff))))
 			  #+nil
 			  (format t "i = ~S~%" i)
@@ -187,4 +191,6 @@
 		      (setf result-n n
 			    result-y0 (aref y 0)
 			    result-y1 (aref y 1))))))))
-    (values result-n result-y0 result-y1)))
+    (setf (aref yy 0) result-y0)
+    (setf (aref yy 1) result-y1)
+    (values result-n)))
