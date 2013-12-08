@@ -1,4 +1,4 @@
-(in-package "CL-USER")
+(in-package "IEEE754")
 
 (defconstant init-jk
   (make-array 4 :element-type '(unsigned-byte 8)

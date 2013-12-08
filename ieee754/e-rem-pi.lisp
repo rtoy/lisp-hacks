@@ -1,4 +1,4 @@
-(in-package "CL-USER")
+(in-package "IEEE754")
 
 (defconstant 2/pi-bits
   (make-array 66 :element-type '(unsigned-byte 32)
@@ -66,6 +66,7 @@
 				 result-y1 (- (- z y0) pi/2-1t))))
 			(t
 			 ;; near pi/2. Use 33+33+53 bits of pi
+			 (format t "near pi/2~%")
 			 (decf z pi/2-2)
 			 (let ((y0 (- z pi/2-2t)))
 			   (setf result-n 1
@@ -98,12 +99,12 @@
 		  (y1 0d0))
 	     (declare (type (double-float 0d0 1048576d0) tt)
 		      (double-float r w y0 y1))
-	     #+nil
+	     ;;#+nil
 	     (format t "n, fn = ~S ~S~%" n fn)
 	     ;; First round good to 85 bit
 	     (cond ((and (< fn 32)
 			 (/= ix (aref npio2-hw (- n 1))))
-		    #+nil
+		    ;;#+nil
 		    (format t "first round ~%")
 		    (setf y0 (- r w)))
 		   (t
@@ -114,7 +115,7 @@
 		    (let* ((j (ash ix -20))
 			   (i (- j (logand (ash (kernel:double-float-high-bits y0) -20)
 					   #x7ff))))
-		      #+nil
+		      ;;#+nil
 		      (format t "i = ~S~%" i)
 		      (when (> i 16)
 			;; 2nd iteration, good to 118
@@ -161,7 +162,7 @@
 	   ;; All other large values
 	   #+nil
 	   (format t "Big value ~S~%" x)
-	   (let* ((ilogx (truly-the (integer 0 1023) (kernel::logb (abs x))))
+	   (let* ((ilogx (ext:truly-the (integer 0 1023) (kernel::logb (abs x))))
 		  (z (scale-float (abs x) (- 23 ilogx)))
 		  (e0 (- ilogx 23))
 		  (y (make-array 2 :element-type 'double-float))
