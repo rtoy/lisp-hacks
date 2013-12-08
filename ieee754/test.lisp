@@ -123,8 +123,19 @@
     (compare pi)
   nil)
 
-;; All of the cases in npio2-hw, not first round case
-(rt:deftest medium.2
+;; All of the cases in npio2-hw, first round case
+(rt:deftest medium-first-round.1
+    (let (results)
+      (loop for x across ieee754::npio2-hw
+	    do
+	       (push (compare (* 1.01d0 (kernel:make-double-float x 0)))
+		     results))
+      (remove nil results))
+  nil)
+
+;; All of the cases in npio2-hw, not first round case. Second round
+;; case is covered.
+(rt:deftest medium-second-round.1
     (let (results)
       (loop for x across ieee754::npio2-hw
 	    do
@@ -133,15 +144,12 @@
       (remove nil results))
   nil)
 
-;; All of the cases in npio2-hw, first round case
-(rt:deftest medium.3
-    (let (results)
-      (loop for x across ieee754::npio2-hw
-	    do
-	       (push (compare (* 1.01d0 (kernel:make-double-float x 0)))
-		     results))
-      (remove nil results))
+;; All of the cases in npio2-hw, not first round case. Third round
+;; case is covered.
+(rt:deftest medium-third-round.1
+    (compare (* 5 pi))
   nil)
+
 
 (rt:deftest inf.1
     (ext:with-float-traps-masked (:invalid)
@@ -151,4 +159,20 @@
 (rt:deftest nan.1
     (ext:with-float-traps-masked (:invalid)
       (compare (kernel:make-double-float #x7ff00000 1)))
+  nil)
+
+;; Tests for values bigger than 2^19*pi/2.  These call k-rem-pi.
+(rt:deftest basic.big.1
+    (compare (scale-float 1d0 120))
+  nil)
+
+(rt:deftest basic.big.2
+    (compare (scale-float 1d0 1023))
+  nil)
+
+(rt:deftest basic.big.3
+    (compare most-positive-double-float)
+  nil)
+(rt:deftest basic.big.4
+    (compare most-negative-double-float)
   nil)
