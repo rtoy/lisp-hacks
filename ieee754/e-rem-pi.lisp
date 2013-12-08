@@ -66,6 +66,7 @@
 				 result-y1 (- (- z y0) pi/2-1t))))
 			(t
 			 ;; near pi/2. Use 33+33+53 bits of pi
+			 #+nil
 			 (format t "near pi/2~%")
 			 (decf z pi/2-2)
 			 (let ((y0 (- z pi/2-2t)))
@@ -99,12 +100,12 @@
 		  (y1 0d0))
 	     (declare (type (double-float 0d0 1048576d0) tt)
 		      (double-float r w y0 y1))
-	     ;;#+nil
+	     #+nil
 	     (format t "n, fn = ~S ~S~%" n fn)
 	     ;; First round good to 85 bit
 	     (cond ((and (< fn 32)
 			 (/= ix (aref npio2-hw (- n 1))))
-		    ;;#+nil
+		    #+nil
 		    (format t "first round ~%")
 		    (setf y0 (- r w)))
 		   (t
@@ -115,7 +116,7 @@
 		    (let* ((j (ash ix -20))
 			   (i (- j (logand (ash (kernel:double-float-high-bits y0) -20)
 					   #x7ff))))
-		      ;;#+nil
+		      #+nil
 		      (format t "i = ~S~%" i)
 		      (when (> i 16)
 			;; 2nd iteration, good to 118
@@ -131,7 +132,7 @@
 			(let ((i (- j (logand (ash (kernel:double-float-high-bits y0) -20)
 					      #x7ff))))
 			  #+nil
-			  (format t "i = ~S~%" i)
+			  (format t "second round i = ~S~%" i)
 			  (when (> i 49)
 			    ;; 3rd iteration needed. 151 bits
 			    #+nil
