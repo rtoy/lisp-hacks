@@ -1,23 +1,25 @@
-(in-package "CL-USER")
+(in-package "IEEE754")
 
+#+nil
+(progn
 (declaim (inline rem-pi/2))
 (alien:def-alien-routine ("rem_pio2" rem-pi/2) c-call:int
   (x double-float)
   (y0 double-float :out)
   (y1 double-float :out))
-
+)
 
 (defun compare (x)
-  (multiple-value-bind (n y0 y1)
-      (ieee754-rem-pi/2 x)
+  (let* ((y (make-array 2 :element-type 'double-float))
+	 (n (ieee754-rem-pi/2 x y)))
     (multiple-value-bind (true-n true-y0 true-y1)
 	(kernel::%ieee754-rem-pi/2 x)
       (unless (and (= n true-n)
-	       (eql y0 true-y0)
-	       (eql y1 true-y1))
-	  (list x
-		(list n y0 y1)
-		(list true-n true-y0 true-y1))))))
+		   (eql (aref y 0) true-y0)
+		   (eql (aref y 1) true-y1))
+	(list x
+	      (list n (aref y 0) (aref y 1))
+	      (list true-n true-y0 true-y1))))))
 
 (defun test-mult-pi/4 (n &optional (count 1000))
   ;; Test multiples of random multiples of pi up to n*pi
@@ -63,5 +65,90 @@
 		 (incf yy0 y0)
 		 (incf yy1 y1)))
 	     (values nn yy0 yy1))))
-    (time (test-lisp))
-    (time (test-ref))))
+    (multiple-value-bind (n y0 y1)
+	(time (test-lisp))
+      (format t "Actual:   ~S ~S ~S~%" n y0 y1))
+    (multiple-value-bind (n y0 y1)
+	(time (test-ref))
+      (format t "Expected: ~S ~S ~S~%" n y0 y1))))
+
+(rt:deftest small.1
+    (compare .1d0)
+  nil)
+
+(rt:deftest nsmall.1
+    (compare -.1d0)
+  nil)
+
+(rt:deftest small.2
+    (compare .5d0)
+  nil)
+
+(rt:deftest nsmall.2
+    (compare -.5d0)
+  nil)
+
+(rt:deftest pi/4.1
+    (compare (/ pi 4))
+  nil)
+
+(rt:deftest npi/4.1
+    (compare (/ pi -4))
+  nil)
+
+(rt:deftest pi.1
+    (compare pi)
+  nil)
+
+;; Tests the case |x| < 3*pi/4; Extra bits needed near pi/2
+(rt:deftest pi/2.1
+    (compare (/ pi 2))
+  nil)
+
+;; Tests the case |x| < 3*pi/4;  33+53 bits is enough
+(rt:deftest special.1
+    (compare 1.5d0)
+  nil)
+
+(rt:deftest special.2
+    (compare 2d0)
+  nil)
+
+(rt:deftest special.3
+    (compare (* 3/4 pi))
+  nil)
+
+;; Medium size 3/4*pi < x < 2^19*pi/2
+(rt:deftest medium.1
+    (compare pi)
+  nil)
+
+;; All of the cases in npio2-hw, not first round case
+(rt:deftest medium.2
+    (let (results)
+      (loop for x across ieee754::npio2-hw
+	    do
+	       (push (compare (kernel:make-double-float x 0))
+		     results))
+      (remove nil results))
+  nil)
+
+;; All of the cases in npio2-hw, first round case
+(rt:deftest medium.3
+    (let (results)
+      (loop for x across ieee754::npio2-hw
+	    do
+	       (push (compare (* 1.01d0 (kernel:make-double-float x 0)))
+		     results))
+      (remove nil results))
+  nil)
+
+(rt:deftest inf.1
+    (ext:with-float-traps-masked (:invalid)
+      (compare ext:double-float-positive-infinity))
+  nil)
+
+(rt:deftest nan.1
+    (ext:with-float-traps-masked (:invalid)
+      (compare (kernel:make-double-float #x7ff00000 1)))
+  nil)
