@@ -1,5 +1,7 @@
 (in-package "FDLIBM")
 
+(declaim (ext:start-block kernel-sin kernel-cos kernel-tan %sin %cos %tan))
+
 ;; kernel sin function on [-pi/4, pi/4], pi/4 ~ 0.7854
 ;; Input x is assumed to be bounded by ~pi/4 in magnitude.
 ;; Input y is the tail of x.
@@ -25,14 +27,20 @@
 ;;		r = x *(S2+x *(S3+x *(S4+x *(S5+x *S6))))
 ;;	   then                   3    2
 ;;		sin(x) = x + (S1*x + (x *(r-y/2)+y))
+
+(declaim (ftype (function (double-float double-float fixnum)
+			  double-float)
+		kernel-sin))
+
 (defun kernel-sin (x y iy)
   (declare (type (double-float -1d0 1d0) x y)
 	   (fixnum iy)
 	   (optimize (speed 3) (safety 0)))
   (let ((ix (ldb (byte 31 0) (kernel:double-float-high-bits x))))
     (when (< ix #x3e400000)
-      (when (zerop (truncate x))
-	(return-from kernel-sin x)))
+      (if (zerop (truncate x))
+	  (return-from kernel-sin x)
+	  (return-from kernel-sin x)))
     (let* ((s1 -1.66666666666666324348d-01)
 	   (s2  8.33333333332248946124d-03)
 	   (s3 -1.98412698298579493134d-04)
@@ -87,6 +95,10 @@
 ;;	   Note that 1-qx and (x*x/2-qx) is EXACT here, and the
 ;;	   magnitude of the latter is at least a quarter of x*x/2,
 ;;	   thus, reducing the rounding error in the subtraction.
+(declaim (ftype (function (double-float double-float)
+			  double-float)
+		kernel-cos))
+
 (defun kernel-cos (x y)
   (declare (type (double-float -1d0 1d0) x y)
 	   (optimize (speed 3) (safety 0)))
@@ -95,8 +107,9 @@
     ;; cos(x) = 1 when |x| < 2^-27
     (when (< ix #x3e400000)
       ;; Signal inexact if x /= 0
-      (when (zerop (truncate x))
-	(return-from kernel-cos 1d0)))
+      (if (zerop (truncate x))
+	  (return-from kernel-cos 1d0)
+	  (return-from kernel-cos 1d0)))
     (let* ((c1  4.16666666666666019037d-02)
 	   (c2 -1.38888888888741095749d-03)
 	   (c3  2.48015872894767294178d-05)
@@ -181,6 +194,10 @@
 ;;      4. For x in [0.67434,pi/4],  let y = pi/4 - x, then
 ;;		tan(x) = tan(pi/4-y) = (1-tan(y))/(1+tan(y))
 ;;		       = 1 - 2*(tan(y) - (tan(y)^2)/(1+tan(y)))
+(declaim (ftype (function (double-float double-float fixnum)
+			  double-float)
+		kernel-tan))
+
 (defun kernel-tan (x y iy)
   (declare (type (double-float -1d0 1d0) x y)
 	   (type (member -1 1) iy)
@@ -372,4 +389,5 @@
 	     (let ((flag (- 1 (ash (logand n 1) 1))))
 	       ;; flag = 1 if n even, -1 if n odd
 	       (kernel-tan y0 y1 flag)))))))
-	   
+
+(declaim (ext:end-block))
