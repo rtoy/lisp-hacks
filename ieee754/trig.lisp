@@ -1,5 +1,61 @@
 (in-package "FDLIBM")
 
+;; kernel sin function on [-pi/4, pi/4], pi/4 ~ 0.7854
+;; Input x is assumed to be bounded by ~pi/4 in magnitude.
+;; Input y is the tail of x.
+;; Input iy indicates whether y is 0. (if iy=0, y assume to be 0). 
+;;
+;; Algorithm
+;;	1. Since sin(-x) = -sin(x), we need only to consider positive x. 
+;;	2. if x < 2^-27 (hx<0x3e400000 0), return x with inexact if x!=0.
+;;	3. sin(x) is approximated by a polynomial of degree 13 on
+;;	   [0,pi/4]
+;;		  	         3            13
+;;	   	sin(x) ~ x + S1*x + ... + S6*x
+;;	   where
+;;	
+;; 	|sin(x)         2     4     6     8     10     12  |     -58
+;; 	|----- - (1+S1*x +S2*x +S3*x +S4*x +S5*x  +S6*x   )| <= 2
+;; 	|  x 					           | 
+;; 
+;;	4. sin(x+y) = sin(x) + sin'(x')*y
+;;		    ~ sin(x) + (1-x*x/2)*y
+;;	   For better accuracy, let 
+;;		     3      2      2      2      2
+;;		r = x *(S2+x *(S3+x *(S4+x *(S5+x *S6))))
+;;	   then                   3    2
+;;		sin(x) = x + (S1*x + (x *(r-y/2)+y))
+(defun kernel-sin (x y iy)
+  (declare (type (double-float -1d0 1d0) x y)
+	   (fixnum iy)
+	   (optimize (speed 3) (safety 0)))
+  (let ((ix (ldb (byte 31 0) (kernel:double-float-high-bits x))))
+    (when (< ix #x3e400000)
+      (when (zerop (truncate x))
+	(return-from kernel-sin x)))
+    (let* ((s1 -1.66666666666666324348d-01)
+	   (s2  8.33333333332248946124d-03)
+	   (s3 -1.98412698298579493134d-04)
+	   (s4  2.75573137070700676789d-06)
+	   (s5 -2.50507602534068634195d-08)
+	   (s6  1.58969099521155010221d-10)
+	   (z (* x x))
+	   (v (* z x))
+	   (r (+ s2
+		 (* z
+		    (+ s3
+		       (* z
+			  (+ s4
+			     (* z
+				(+ s5
+				   (* z s6))))))))))
+      (if (zerop iy)
+	  (+ x (* v (+ s1 (* z r))))
+	  (- x (- (- (* z (- (* .5 y)
+			     (* v r)))
+		     y)
+		  (* v s1)))))))
+
 ;; kernel cos function on [-pi/4, pi/4], pi/4 ~ 0.785398164
 ;; Input x is assumed to be bounded by ~pi/4 in magnitude.
 ;; Input y is the tail of x. 
@@ -77,62 +133,6 @@
 	       (- a (- hz (- (* z r)
 			     (* x y))))))))))
 
-;; kernel sin function on [-pi/4, pi/4], pi/4 ~ 0.7854
-;; Input x is assumed to be bounded by ~pi/4 in magnitude.
-;; Input y is the tail of x.
-;; Input iy indicates whether y is 0. (if iy=0, y assume to be 0). 
-;;
-;; Algorithm
-;;	1. Since sin(-x) = -sin(x), we need only to consider positive x. 
-;;	2. if x < 2^-27 (hx<0x3e400000 0), return x with inexact if x!=0.
-;;	3. sin(x) is approximated by a polynomial of degree 13 on
-;;	   [0,pi/4]
-;;		  	         3            13
-;;	   	sin(x) ~ x + S1*x + ... + S6*x
-;;	   where
-;;	
-;; 	|sin(x)         2     4     6     8     10     12  |     -58
-;; 	|----- - (1+S1*x +S2*x +S3*x +S4*x +S5*x  +S6*x   )| <= 2
-;; 	|  x 					           | 
-;; 
-;;	4. sin(x+y) = sin(x) + sin'(x')*y
-;;		    ~ sin(x) + (1-x*x/2)*y
-;;	   For better accuracy, let 
-;;		     3      2      2      2      2
-;;		r = x *(S2+x *(S3+x *(S4+x *(S5+x *S6))))
-;;	   then                   3    2
-;;		sin(x) = x + (S1*x + (x *(r-y/2)+y))
-(defun kernel-sin (x y iy)
-  (declare (type (double-float -1d0 1d0) x y)
-	   (fixnum iy)
-	   (optimize (speed 3) (safety 0)))
-  (let ((ix (ldb (byte 31 0) (kernel:double-float-high-bits x))))
-    (when (< ix #x3e400000)
-      (when (zerop (truncate x))
-	(return-from kernel-sin x)))
-    (let* ((s1 -1.66666666666666324348d-01)
-	   (s2  8.33333333332248946124d-03)
-	   (s3 -1.98412698298579493134d-04)
-	   (s4  2.75573137070700676789d-06)
-	   (s5 -2.50507602534068634195d-08)
-	   (s6  1.58969099521155010221d-10)
-	   (z (* x x))
-	   (v (* z x))
-	   (r (+ s2
-		 (* z
-		    (+ s3
-		       (* z
-			  (+ s4
-			     (* z
-				(+ s5
-				   (* z s6))))))))))
-      (if (zerop iy)
-	  (+ x (* v (+ s1 (* z r))))
-	  (- x (- (- (* z (- (* .5 y)
-			     (* v r)))
-		     y)
-		  (* v s1)))))))
-
 (declaim (type (simple-array double-float (*)) ttt))
 (defconstant ttt
   (make-array 13 :element-type 'double-float
@@ -198,10 +198,12 @@
       (when (zerop (truncate x))
 	(cond ((zerop (logior (logior ix (kernel:double-float-low-bits x))
 			      (+ iy 1)))
+	       ;; x = 0 and iy = -1 (cot)
 	       (return-from kernel-tan (/ (abs x))))
 	      ((= iy 1)
 	       (return-from kernel-tan x))
 	      (t
+	       ;; x /= 0 and iy = -1 (cot)
 	       ;; Compute -1/(x+y) carefully
 	       (let ((a 0d0)
 		     (tt 0d0))
