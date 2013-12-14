@@ -144,3 +144,28 @@
   -4.08066388841804238545143494525595117765084022768d-1)
   
   
+(defun time-sin (x &optional (n 1000000))
+  (declare (double-float x)
+	   (fixnum n))
+  (flet ((test-sin ()
+	   (declare (optimize (speed 3) (safety 0)))
+	   (let ((sum 0d0))
+	     (declare (double-float sum))
+	     (dotimes (k n)
+	       (declare (fixnum k))
+	       (incf sum (cl:sin x)))
+	     sum))
+	 (test-%sin ()
+	   (declare (optimize (speed 3) (safety 0)))
+	   (let ((sum 0d0))
+	     (declare (double-float sum))
+	     (dotimes (k n)
+	       (declare (fixnum k))
+	       (incf sum (%sin x)))
+	     sum)))
+    (let ((r (time (test-sin))))
+      (format t "r = ~S~%" r))
+    (let ((r (time (test-%sin))))
+      (format t "r = ~S~%" r))))
+    
+	   
