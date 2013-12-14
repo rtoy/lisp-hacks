@@ -1,4 +1,4 @@
-(in-package "KERNEL")
+(in-package "FDLIBM")
 
 ;; kernel cos function on [-pi/4, pi/4], pi/4 ~ 0.785398164
 ;; Input x is assumed to be bounded by ~pi/4 in magnitude.
@@ -35,45 +35,43 @@
   (declare (type (double-float -1d0 1d0) x y)
 	   (optimize (speed 3) (safety 0)))
   ;; cos(-x) = cos(x), so we just compute cos(|x|).
-  (let ((ix (kernel:double-float-high-bits x)))
+  (let ((ix (ldb (byte 31 0) (kernel:double-float-high-bits x))))
     ;; cos(x) = 1 when |x| < 2^-27
     (when (< ix #x3e400000)
       ;; Signal inexact if x /= 0
       (when (zerop (truncate x))
 	(return-from kernel-cos 1d0)))
-    (let* ((c1  4.16666666666666019037e-02)
-	   (c2 -1.38888888888741095749e-03)
-	   (c3  2.48015872894767294178e-05)
-	   (c4 -2.75573143513906633035e-07)
-	   (c5  2.08757232129817482790e-09)
-	   (c6 -1.13596475577881948265e-11)
+    (let* ((c1  4.16666666666666019037d-02)
+	   (c2 -1.38888888888741095749d-03)
+	   (c3  2.48015872894767294178d-05)
+	   (c4 -2.75573143513906633035d-07)
+	   (c5  2.08757232129817482790d-09)
+	   (c6 -1.13596475577881948265d-11)
 	   (z (* x x))
-	   (r (* z (+ c1
-		      (* z
-			 (+ c2
-			    (* z
-			       (+ c3
-				  (* z
-				     (+ c4
-					(* z
-					   (+ c5
-					      (* z c6)))))))))))))
+	   (r (* z
+		 (+ c1
+		    (* z
+		       (+ c2
+			  (* z
+			     (+ c3
+				(* z
+				   (+ c4
+				      (* z
+					 (+ c5
+					    (* z c6)))))))))))))
       (cond ((< ix #x3fd33333)
 	     ;; \x| < 0.3
 	     (- 1 (- (* .5 z)
 		     (- (* z r)
 			(* x y)))))
 	    (t
-	     (let* ((qx (if (> x 0.78125d0)
+	     (let* ((qx (if (> ix #x3fe90000)
 			    0.28125d0
 			    ;; x/4, exactly, and also dropping the
 			    ;; least significant 32 bits of the
 			    ;; fraction. (Why?)
-			    (kernel:make-double-float
-			     (ext:truly-the (signed-byte 32)
-					    (- (kernel:double-float-high-bits x)
-					       #x00200000))
-			     0)))
+			    (kernel:make-double-float (- ix #x00200000)
+						      0)))
 		    (hz (- (* 0.5 z) qx))
 		    (a (- 1 qx)))
 	       (- a (- hz (- (* z r)
@@ -108,7 +106,7 @@
   (declare (type (double-float -1d0 1d0) x y)
 	   (fixnum iy)
 	   (optimize (speed 3) (safety 0)))
-  (let ((ix (kernel:double-float-high-bits x)))
+  (let ((ix (ldb (byte 31 0) (kernel:double-float-high-bits x))))
     (when (< ix #x3e400000)
       (when (zerop (truncate x))
 	(return-from kernel-sin x)))
@@ -130,8 +128,9 @@
 				   (* z s6))))))))))
       (if (zerop iy)
 	  (+ x (* v (+ s1 (* z r))))
-	  (- x (- (* z (- (* .5 y)
-			  (* v r)))
+	  (- x (- (- (* z (- (* .5 y)
+			     (* v r)))
+		     y)
 		  (* v s1)))))))
 
 (declaim (type (simple-array double-float (*)) ttt))
@@ -186,7 +185,7 @@
   (declare (type (double-float -1d0 1d0) x y)
 	   (type (member -1 1) iy)
 	   (optimize (speed 3) (safety 0)))
-  (let* ((hx (double-float-high-bits x))
+  (let* ((hx (kernel:double-float-high-bits x))
 	 (ix (logand hx #x7fffffff))
 	 (w 0d0)
 	 (z 0d0)
@@ -197,7 +196,7 @@
     (when (< ix #x3e300000)
       ;; |x| < 2^-28
       (when (zerop (truncate x))
-	(cond ((zerop (logior (logior ix (double-float-low-bits x))
+	(cond ((zerop (logior (logior ix (kernel:double-float-low-bits x))
 			      (+ iy 1)))
 	       (return-from kernel-tan (/ (abs x))))
 	      ((= iy 1)
@@ -207,10 +206,10 @@
 	       (let ((a 0d0)
 		     (tt 0d0))
 		 (setf w (+ x y))
-		 (setf z (make-double-float (double-float-high-bits w) 0))
+		 (setf z (kernel:make-double-float (kernel:double-float-high-bits w) 0))
 		 (setf v (- y (- z x)))
 		 (setf a (/ -1 w))
-		 (setf tt (make-double-float (double-float-high-bits a) 0))
+		 (setf tt (kernel:make-double-float (kernel:double-float-high-bits a) 0))
 		 (setf s (+ 1 (* tt z)))
 		 (return-from kernel-tan (+ tt
 					    (* a (+ s (* tt v))))))))))
@@ -220,9 +219,9 @@
 	(setf x (- x))
 	(setf y (- y)))
       ;; z = pi/4-x
-      (setf z (- (make-double-float #x3FE921FB #x54442D18) x))
+      (setf z (- (kernel:make-double-float #x3FE921FB #x54442D18) x))
       ;; w = pi/4_lo - y
-      (setf w (- (make-double-float #x3C81A626 #x33145C07) y))
+      (setf w (- (kernel:make-double-float #x3C81A626 #x33145C07) y))
       (setf x (+ z w))
       (setf y 0d0))
     (setf z (* x x))
@@ -270,10 +269,10 @@
     ;;
     (let ((a 0d0)
 	  (tt 0d0))
-      (setf z (make-double-float (double-float-high-bits w) 0))
+      (setf z (kernel:make-double-float (kernel:double-float-high-bits w) 0))
       (setf v (- r (- r x)))		; z + v = r + x
       (setf a (/ -1 w))
-      (setf tt (make-double-float (double-float-high-bits a) 0))
+      (setf tt (kernel:make-double-float (kernel:double-float-high-bits a) 0))
       (setf s (+ 1 (* tt z)))
       (+ tt
 	 (* a
@@ -340,8 +339,8 @@
       ((< ix #x3fe921fb)
        ;;|x| < pi/4, approx
        (kernel-cos x 0d0))
-      ((>= x #x7ff00000)
-       ;; os(Inf or NaN) is NaN
+      ((>= ix #x7ff00000)
+       ;; cos(Inf or NaN) is NaN
        (- x x))
       (t
        ;; Argument reduction needed
